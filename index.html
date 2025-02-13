@@ -1,0 +1,173 @@
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GrapeWork - Login</title>
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="stylesheet" href="styles/login.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css" rel="stylesheet">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+</head>
+<body class="login-body">
+  <div class="login-container">
+    <div class="login-card">
+      <div class="login-logo">
+        <h1>GrapeWork</h1>
+        <!-- SVG: Grape Worker Animation -->
+        <svg id="grape-worker" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200">
+          <!-- Grape Body -->
+          <circle cx="100" cy="80" r="40" fill="#6a0dad">
+            <animateTransform 
+              attributeName="transform" 
+              type="scale" 
+              values="1;1.05;1" 
+              dur="2s" 
+              repeatCount="indefinite" />
+          </circle>
+          <!-- Worker Hat -->
+          <rect x="80" y="40" width="40" height="10" fill="#ffffff">
+            <animateTransform 
+              attributeName="transform" 
+              type="rotate" 
+              values="0 100 80; 0 100 80" 
+              dur="2s" 
+              repeatCount="indefinite" />
+          </rect>
+          <!-- Eyes -->
+          <circle cx="90" cy="75" r="5" fill="#ffffff" />
+          <circle cx="110" cy="75" r="5" fill="#ffffff" />
+          <!-- Clock -->
+          <circle cx="160" cy="40" r="15" fill="#ffffff" stroke="#6a0dad" stroke-width="2">
+            <animateTransform 
+              attributeName="transform" 
+              type="rotate" 
+              values="0 160 40;360 160 40" 
+              dur="10s" 
+              repeatCount="indefinite" />
+          </circle>
+          <line x1="160" y1="40" x2="160" y2="30" stroke="#6a0dad" stroke-width="2">
+            <animateTransform 
+              attributeName="transform" 
+              type="rotate" 
+              from="0 160 40" 
+              to="360 160 40" 
+              dur="10s" 
+              repeatCount="indefinite" />
+          </line>
+          <line x1="160" y1="40" x2="170" y2="40" stroke="#6a0dad" stroke-width="2">
+            <animateTransform 
+              attributeName="transform" 
+              type="rotate" 
+              from="0 160 40" 
+              to="360 160 40" 
+              dur="5s" 
+              repeatCount="indefinite" />
+          </line>
+          <!-- Desk -->
+          <rect x="60" y="120" width="80" height="10" fill="#8B4513">
+            <animateTransform 
+              attributeName="transform" 
+              type="translate" 
+              values="0;0" 
+              dur="2s" 
+              repeatCount="indefinite" />
+          </rect>
+          <!-- Legs -->
+          <line x1="80" y1="130" x2="80" y2="150" stroke="#8B4513" stroke-width="3">
+            <animateTransform 
+              attributeName="transform" 
+              type="translate" 
+              values="0,0;0,5;0,0" 
+              dur="2s" 
+              repeatCount="indefinite" />
+          </line>
+          <line x1="120" y1="130" x2="120" y2="150" stroke="#8B4513" stroke-width="3">
+            <animateTransform 
+              attributeName="transform" 
+              type="translate" 
+              values="0,0;0,5;0,0" 
+              dur="2s" 
+              repeatCount="indefinite" />
+          </line>
+        </svg>
+      </div>
+      <form id="loginForm">
+        <div class="mb-3">
+          <label for="email" class="form-label">E-mail</label>
+          <input type="email" class="form-control" id="email" required>
+        </div>
+        <div class="mb-3">
+          <label for="password" class="form-label">Senha</label>
+          <input type="password" class="form-control" id="password" required>
+        </div>
+        <div class="d-grid gap-2">
+          <button type="submit" class="btn btn-primary">Entrar</button>
+          <button type="button" class="btn btn-link" id="forgotPasswordBtn">Esqueci minha senha</button>
+        </div>
+      </form>
+      <div class="text-center mt-3">
+        <a href="register.html" class="btn-link">Criar nova conta</a>
+      </div>
+    </div>
+  </div>
+
+  <div id="globalNotificationsDropdown" class="dropdown position-fixed top-0 end-0 p-3" style="z-index: 9999;">
+    <button class="btn btn-primary dropdown-toggle" type="button" id="notificationsDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+        <i class="bi bi-bell"></i>
+        <span id="notificationBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="display:none;">
+            0
+            <span class="visually-hidden">unread notifications</span>
+        </span>
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="notificationsDropdownBtn" id="notificationsDropdownMenu">
+        <!-- Notifications will be dynamically populated here -->
+    </ul>
+  </div>
+
+  <footer class="text-center py-3 bg-light">
+    Sistema Grapework | Desenvolvido por iAI Tecnologia - &copy; 2025 | <a href="https://www.iaitecnologia.com" target="_blank">www.iaitecnologia.com</a>
+  </footer>
+
+  <script src="js/login.js" type="module"></script>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const notificationBadge = document.getElementById('notificationBadge');
+      const notificationsDropdownMenu = document.getElementById('notificationsDropdownMenu');
+
+      function updateNotificationsDropdown() {
+        const notifications = JSON.parse(localStorage.getItem('systemNotifications') || '[]');
+        
+        // Update badge count
+        notificationBadge.textContent = notifications.length;
+        notificationBadge.style.display = notifications.length > 0 ? 'block' : 'none';
+
+        // Populate dropdown menu
+        notificationsDropdownMenu.innerHTML = notifications.length > 0 
+            ? notifications.map(notification => `
+                <li>
+                    <a class="dropdown-item" href="#">
+                        <span class="badge bg-${notification.severity}">${notification.type.toUpperCase()}</span>
+                        ${notification.message}
+                    </a>
+                </li>
+            `).join('')
+            : `<li><a class="dropdown-item text-muted">Nenhuma notificação</a></li>`;
+      }
+
+      // Update notifications when page loads
+      updateNotificationsDropdown();
+
+      // Listen for storage changes
+      window.addEventListener('storage', (event) => {
+        if (event.key === 'systemNotifications') {
+          updateNotificationsDropdown();
+        }
+      });
+    });
+  </script>
+</body>
+</html>

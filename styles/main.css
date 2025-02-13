@@ -1,0 +1,354 @@
+:root {
+    --cor-roxo: #6a0dad;
+    --cor-roxo-claro: #9932cc;
+    --cor-branco: #ffffff;
+    --cor-preto: #000000;
+    --cor-cinza-claro: #f4f4f4;
+}
+
+/* Responsive Base Styles */
+body {
+    font-family: 'Arial', sans-serif;
+    background-color: var(--cor-cinza-claro);
+}
+
+/* Responsive Sidebar */
+@media (max-width: 768px) {
+    .sidebar {
+        position: static;
+        min-height: auto;
+        width: 100%;
+    }
+
+    .main-content {
+        margin-left: 0;
+    }
+
+    .sidebar .nav-link {
+        padding: 10px;
+        text-align: center;
+    }
+
+    .sidebar .nav-link i {
+        margin-right: 0;
+    }
+}
+
+/* Responsive Grid */
+.container-fluid {
+    padding-left: 15px;
+    padding-right: 15px;
+}
+
+.row {
+    margin-left: -15px;
+    margin-right: -15px;
+}
+
+.col-md-4, .col-md-8, .col-md-12 {
+    padding-left: 15px;
+    padding-right: 15px;
+}
+
+/* Responsive Tables */
+.table-responsive {
+    overflow-x: auto;
+}
+
+/* Responsive Forms */
+@media (max-width: 576px) {
+    .search-filter {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .search-filter input,
+    .search-filter select,
+    .search-filter button {
+        width: 100%;
+    }
+}
+
+/* Responsive Cards */
+.card {
+    border-color: var(--cor-roxo);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+
+/* Responsive Charts */
+canvas {
+    max-width: 100%;
+    height: auto !important;
+}
+
+/* Responsive Typography */
+@media (max-width: 576px) {
+    h1 { font-size: 1.5rem; }
+    h2 { font-size: 1.25rem; }
+    h4 { font-size: 1.1rem; }
+}
+
+/* Responsive Buttons */
+.btn-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+/* Responsive Sidebar Navigation */
+.sidebar {
+    min-height: 100vh;
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 100;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease-in-out;
+}
+
+@media (max-width: 768px) {
+    .sidebar {
+        transform: translateX(-100%);
+        width: 250px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        height: 100vh;
+        z-index: 1000;
+    }
+
+    .sidebar.show {
+        transform: translateX(0);
+    }
+
+    /* Mobile Menu Toggle */
+    .mobile-menu-toggle {
+        display: block;
+        position: fixed;
+        top: 10px;
+        left: 10px;
+        z-index: 1100;
+        background: var(--cor-roxo);
+        color: white;
+        border: none;
+        padding: 10px;
+        border-radius: 5px;
+    }
+}
+
+/* Responsive Navigation */
+.bg-purple {
+    background-color: var(--cor-roxo);
+    color: var(--cor-branco);
+}
+
+.sidebar .nav-link {
+    color: var(--cor-branco);
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar .nav-link:hover {
+    background-color: rgba(255,255,255,0.2);
+    color: var(--cor-branco);
+}
+
+/* Existing Styles Remain the Same */
+.main-content {
+    margin-left: 250px;
+}
+
+.btn-primary {
+    background-color: var(--cor-roxo);
+    border-color: var(--cor-roxo);
+    transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+    background-color: var(--cor-roxo-claro);
+}
+
+footer {
+    background-color: var(--cor-branco);
+    color: var(--cor-roxo) !important;
+    text-align: center;
+    padding: 10px;
+}
+
+footer a {
+    color: var(--cor-roxo) !important;
+    text-decoration: none;
+}
+
+footer a:hover {
+    color: var(--cor-roxo-claro) !important;
+    text-decoration: underline;
+}
+
+/* Responsive Inputs and Selects */
+input, select, textarea {
+    width: 100%;
+    max-width: 100%;
+}
+
+/* Form Field Enhancements */
+.form-control:focus {
+  border-color: var(--cor-roxo);
+  box-shadow: 0 0 0 0.2rem rgba(106, 13, 173, 0.25);
+}
+
+/* Special styling for setor select field */
+#setor {
+  transition: all 0.3s ease;
+  border: 2px solid #ced4da;
+}
+
+#setor:hover {
+  border-color: var(--cor-roxo-claro);
+}
+
+#setor:focus {
+  border-color: var(--cor-roxo);
+  box-shadow: 0 0 0 0.2rem rgba(106, 13, 173, 0.25);
+  outline: none;
+}
+
+/* Visual indicator for select fields */
+select.form-control {
+  cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, var(--cor-roxo) 50%),
+                    linear-gradient(135deg, var(--cor-roxo) 50%, transparent 50%);
+  background-position: calc(100% - 20px) calc(1em + 2px),
+                      calc(100% - 15px) calc(1em + 2px);
+  background-size: 5px 5px,
+                  5px 5px;
+  background-repeat: no-repeat;
+}
+
+select.form-control:focus {
+  background-image: linear-gradient(45deg, var(--cor-roxo) 50%, transparent 50%),
+                    linear-gradient(135deg, transparent 50%, var(--cor-roxo) 50%);
+  background-position: calc(100% - 15px) calc(1em + 2px),
+                      calc(100% - 20px) calc(1em + 2px);
+}
+
+/* Enhanced active state for form controls */
+.form-control:active {
+  border-color: var(--cor-roxo);
+}
+
+/* Add these styles for the notification dropdown */
+#globalNotificationsDropdown {
+    margin-right: 250px; /* Adjust based on your sidebar width */
+}
+
+@media (max-width: 768px) {
+    #globalNotificationsDropdown {
+        margin-right: 10px;
+    }
+}
+
+.dropdown-menu {
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.notification-item {
+    white-space: normal;
+    padding: 8px 12px;
+    border-bottom: 1px solid #eee;
+}
+
+.notification-item:last-child {
+    border-bottom: none;
+}
+
+#notificationBadge {
+    transform: translate(50%, -50%);
+}
+
+/* Responsive main content */
+@media (max-width: 768px) {
+    .main-content {
+        margin-left: 0;
+        padding: 15px;
+    }
+    
+    .card {
+        margin-bottom: 15px;
+    }
+    
+    .row {
+        margin-left: -7.5px;
+        margin-right: -7.5px;
+    }
+    
+    [class*="col-"] {
+        padding-left: 7.5px;
+        padding-right: 7.5px;
+    }
+}
+
+/* Responsive modals */
+@media (max-width: 576px) {
+    .modal-dialog {
+        margin: 10px;
+    }
+}
+
+/* Responsive notification dropdown */
+@media (max-width: 768px) {
+    #globalNotificationsDropdown {
+        right: 10px;
+    }
+    
+    .dropdown-menu {
+        max-width: 300px;
+    }
+}
+
+/* Responsive tables for mobile */
+@media (max-width: 576px) {
+    .table-responsive {
+        border: 0;
+    }
+    
+    .table-responsive table {
+        display: block;
+    }
+    
+    .table-responsive tbody,
+    .table-responsive tr,
+    .table-responsive td {
+        display: block;
+        width: 100%;
+    }
+    
+    .table-responsive th {
+        display: none;
+    }
+    
+    .table-responsive td {
+        text-align: right;
+        position: relative;
+        padding-left: 50%;
+    }
+    
+    .table-responsive td::before {
+        content: attr(data-label);
+        position: absolute;
+        left: 0;
+        width: 45%;
+        text-align: left;
+        font-weight: bold;
+    }
+}
+
+/* Responsive footer */
+@media (max-width: 576px) {
+    footer {
+        font-size: 0.8rem;
+        padding: 5px;
+    }
+}

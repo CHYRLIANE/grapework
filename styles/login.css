@@ -1,0 +1,120 @@
+.login-body {
+    background-color: var(--cor-cinza-claro);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    justify-content: center;
+    align-items: center;
+}
+
+.login-container {
+    width: 100%;
+    max-width: 400px;
+    padding: 20px;
+}
+
+.login-card {
+    background-color: white;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    padding: 30px;
+}
+
+.login-logo {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.login-logo h1 {
+    color: var(--cor-roxo);
+    font-size: 2.5rem;
+    font-weight: bold;
+    margin-bottom: 20px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+#grape-worker {
+    width: 150px;
+    height: 150px;
+    margin: 0 auto 20px;
+    display: block;
+}
+
+.btn-primary {
+    background-color: var(--cor-roxo);
+    border-color: var(--cor-roxo);
+}
+
+.btn-primary:hover {
+    background-color: var(--cor-roxo-claro);
+}
+
+.btn-link {
+    color: var(--cor-roxo);
+}
+
+.btn-link:hover {
+    color: var(--cor-roxo-claro);
+}
+
+/* Responsive styles */
+@media (max-width: 576px) {
+    .login-container {
+        padding: 10px;
+    }
+    
+    .login-card {
+        padding: 20px;
+    }
+    
+    #grape-worker {
+        width: 80px;
+        height: 80px;
+    }
+    
+    .login-logo h1 {
+        font-size: 2rem;
+    }
+}
+
+/* Form responsiveness */
+@media (max-width: 400px) {
+    .form-control {
+        font-size: 14px;
+    }
+    
+    .btn {
+        padding: 8px 16px;
+        font-size: 14px;
+    }
+    
+    .login-logo h1 {
+        font-size: 1.8rem;
+    }
+}
+
+/* Autofill styles */
+input:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0 30px white inset;
+    -webkit-text-fill-color: var(--cor-preto);
+}
+
+/* Loading state */
+.btn-primary.loading {
+    opacity: 0.8;
+    cursor: not-allowed;
+}
+
+/* Error messages */
+.error-message {
+    color: red;
+    font-size: 0.875rem;
+    margin-top: 5px;
+}
+
+/* Success messages */
+.success-message {
+    color: green;
+    font-size: 0.875rem;
+    margin-top: 5px;
+}

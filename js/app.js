@@ -3,9 +3,9 @@ import { renderFuncionarios } from './views/funcionarios.js';
 import { renderEventos } from './views/eventos.js';
 import { renderRelatorios } from './views/relatorios.js';
 import { renderImportacao } from './views/importacao.js';
-import { renderBancoHoras } from './views/banco-horas.js';
 import { renderConfiguracoes } from './views/configuracoes.js';
-
+import { renderSalarios } from './views/salarios.js';
+import { renderBancoHoras } from './views/banco-horas.js';
 import { AuthService } from './services/auth.js';
 
 // Configuração de Armazenamento Local
@@ -52,16 +52,11 @@ window.renderView = function(view) {
     case 'importacao':
       renderImportacao(mainContent);
       break;
-    case 'banco-horas':
-      renderBancoHoras(mainContent);
+    case 'salarios':
+      renderSalarios(mainContent);
       break;
     case 'configuracoes':
       renderConfiguracoes(mainContent);
-      break;
-    case 'salarios':
-      import('./views/salarios.js').then(module => {
-        module.renderSalarios(mainContent);
-      });
       break;
     default:
       renderDashboard(mainContent);

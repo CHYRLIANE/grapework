@@ -5,6 +5,9 @@ const config = require('../config/database.js');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
+// Import routes
+const relatoriosRoutes = require('./routes/relatorios');
+
 const app = express();
 const port = process.env.PORT || 3000;
 
@@ -38,6 +41,9 @@ pool.getConnection()
   .catch(err => {
     console.error('Error connecting to the database:', err);
   });
+
+// Routes
+app.use('/api/relatorios', relatoriosRoutes);
 
 // Auth Routes
 app.post('/api/auth/login', async (req, res) => {

@@ -1,6 +1,143 @@
 import { LocalStorageService } from '../app.js';
+import { renderBancoHoras } from './banco-horas.js';
 
 export function renderImportacao(container) {
+    container.innerHTML = `
+        <div class="container-fluid">
+            <h1 class="mt-4">Importação de Dados - GrapeWork</h1>
+            
+            <!-- Navigation Tabs -->
+            <ul class="nav nav-tabs mb-4">
+                <li class="nav-item">
+                    <a class="nav-link active" id="funcionarios-tab" data-bs-toggle="tab" href="#funcionarios">
+                        <i class="bi bi-people me-2"></i>Funcionários
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="banco-horas-tab" data-bs-toggle="tab" href="#banco-horas">
+                        <i class="bi bi-clock me-2"></i>Banco de Horas
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Tab Content -->
+            <div class="tab-content">
+                <div class="tab-pane fade show active" id="funcionarios">
+                    <!-- Original importação content -->
+                    ${generateImportacaoContent()}
+                </div>
+                <div class="tab-pane fade" id="banco-horas">
+                    <!-- Banco de Horas content will be rendered here -->
+                    <div id="banco-horas-container"></div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Initialize tabs
+    const bancoHorasTab = document.getElementById('banco-horas-tab');
+    bancoHorasTab.addEventListener('shown.bs.tab', () => {
+        const bancoHorasContainer = document.getElementById('banco-horas-container');
+        renderBancoHoras(bancoHorasContainer);
+    });
+
+    // Initialize the funcionarios import functionality
+    initializeImportacao();
+}
+
+function generateImportacaoContent() {
+    return `
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4>Importação de Dados</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>Instruções:</strong>
+                    <p>Importe um arquivo XLSX com os dados dos funcionários. Todos os registros serão processados, 
+                    mesmo com células em branco. Um relatório de inconsistências será gerado.</p>
+                </div>
+                
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Selecionar Arquivo XLSX</label>
+                            <input type="file" class="form-control" id="xlsxFile" accept=".xlsx">
+                        </div>
+                    </div>
+                    <div class="col-md-6 d-flex align-items-end">
+                        <div class="btn-group">
+                            <button class="btn btn-primary" id="importBtn">
+                                <i class="bi bi-upload me-2"></i>Importar Dados
+                            </button>
+                            <button class="btn btn-secondary" id="cancelBtn">
+                                <i class="bi bi-x-circle me-2"></i>Cancelar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Validation Errors Card -->
+        <div id="errorCard" class="card mb-4" style="display:none;">
+            <div class="card-header bg-warning">
+                <h4><i class="bi bi-exclamation-triangle me-2"></i>Registros com Inconsistências</h4>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped" id="errorTable">
+                        <thead>
+                            <tr>
+                                <th>Linha</th>
+                                <th>Colaborador</th>
+                                <th>Inconsistências</th>
+                            </tr>
+                        </thead>
+                        <tbody id="errorTableBody"></tbody>
+                    </table>
+                </div>
+                <button class="btn btn-warning" id="downloadErrorReport">
+                    <i class="bi bi-download me-2"></i>Baixar Relatório de Erros
+                </button>
+            </div>
+        </div>
+
+        <!-- Preview Card -->
+        <div id="previewCard" class="card" style="display:none;">
+            <div class="card-header">
+                <h4>Pré-visualização dos Dados</h4>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover" id="previewTable">
+                        <thead>
+                            <tr>
+                                <th>Colaborador</th>
+                                <th>Cargo</th>
+                                <th>Função</th>
+                                <th>Status</th>
+                                <th>Admissão</th>
+                            </tr>
+                        </thead>
+                        <tbody id="previewTableBody"></tbody>
+                    </table>
+                </div>
+                <div class="d-flex justify-content-between">
+                    <button class="btn btn-success" id="confirmImportBtn">
+                        <i class="bi bi-check-circle me-2"></i>Confirmar Importação
+                    </button>
+                    <div>
+                        <span id="totalRegistros" class="me-3"></span>
+                        <span id="registrosValidados" class="text-success"></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+function initializeImportacao() {
     // Add XLSX library script dynamically
     if (!document.getElementById('xlsx-script')) {
         const xlsxScript = document.createElement('script');
@@ -8,100 +145,6 @@ export function renderImportacao(container) {
         xlsxScript.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
         document.head.appendChild(xlsxScript);
     }
-
-    container.innerHTML = `
-        <div class="container-fluid">
-            <h1 class="mt-4">Importação de Funcionários - GrapeWork</h1>
-            
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h4>Importação de Dados</h4>
-                </div>
-                <div class="card-body">
-                    <div class="alert alert-info">
-                        <strong>Instruções:</strong>
-                        <p>Importe um arquivo XLSX com os dados dos funcionários. Todos os registros serão processados, 
-                        mesmo com células em branco. Um relatório de inconsistências será gerado.</p>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="mb-3">
-                                <label class="form-label">Selecionar Arquivo XLSX</label>
-                                <input type="file" class="form-control" id="xlsxFile" accept=".xlsx">
-                            </div>
-                        </div>
-                        <div class="col-md-6 d-flex align-items-end">
-                            <div class="btn-group">
-                                <button class="btn btn-primary" id="importBtn">
-                                    <i class="bi bi-upload me-2"></i>Importar Dados
-                                </button>
-                                <button class="btn btn-secondary" id="cancelBtn">
-                                    <i class="bi bi-x-circle me-2"></i>Cancelar
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Validation Errors Card -->
-            <div id="errorCard" class="card mb-4" style="display:none;">
-                <div class="card-header bg-warning">
-                    <h4><i class="bi bi-exclamation-triangle me-2"></i>Registros com Inconsistências</h4>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-striped" id="errorTable">
-                            <thead>
-                                <tr>
-                                    <th>Linha</th>
-                                    <th>Colaborador</th>
-                                    <th>Inconsistências</th>
-                                </tr>
-                            </thead>
-                            <tbody id="errorTableBody"></tbody>
-                        </table>
-                    </div>
-                    <button class="btn btn-warning" id="downloadErrorReport">
-                        <i class="bi bi-download me-2"></i>Baixar Relatório de Erros
-                    </button>
-                </div>
-            </div>
-
-            <!-- Preview Card -->
-            <div id="previewCard" class="card" style="display:none;">
-                <div class="card-header">
-                    <h4>Pré-visualização dos Dados</h4>
-                </div>
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table table-hover" id="previewTable">
-                            <thead>
-                                <tr>
-                                    <th>Colaborador</th>
-                                    <th>Cargo</th>
-                                    <th>Função</th>
-                                    <th>Status</th>
-                                    <th>Admissão</th>
-                                </tr>
-                            </thead>
-                            <tbody id="previewTableBody"></tbody>
-                        </table>
-                    </div>
-                    <div class="d-flex justify-content-between">
-                        <button class="btn btn-success" id="confirmImportBtn">
-                            <i class="bi bi-check-circle me-2"></i>Confirmar Importação
-                        </button>
-                        <div>
-                            <span id="totalRegistros" class="me-3"></span>
-                            <span id="registrosValidados" class="text-success"></span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
 
     // Validation Utilities
     const validators = {

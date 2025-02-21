@@ -1,12 +1,26 @@
 import { LocalStorageService } from '../app.js';
 
 export function renderRelatorios(container) {
-    // Add XLSX library script dynamically
+    // Add XLSX and jsPDF library scripts dynamically
     if (!document.getElementById('xlsx-script')) {
         const xlsxScript = document.createElement('script');
         xlsxScript.id = 'xlsx-script';
         xlsxScript.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
         document.head.appendChild(xlsxScript);
+    }
+
+    if (!document.getElementById('jspdf-script')) {
+        const jspdfScript = document.createElement('script');
+        jspdfScript.id = 'jspdf-script';
+        jspdfScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+        document.head.appendChild(jspdfScript);
+    }
+
+    if (!document.getElementById('jspdf-autotable-script')) {
+        const autoTableScript = document.createElement('script');
+        autoTableScript.id = 'jspdf-autotable-script';
+        autoTableScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js';
+        document.head.appendChild(autoTableScript);
     }
 
     container.innerHTML = `
@@ -23,6 +37,7 @@ export function renderRelatorios(container) {
                         <div class="col-md-3">
                             <label>Tipo de Relatório</label>
                             <select class="form-control" id="tipoRelatorio">
+                                <option value="todos">Todos os Relatórios</option>
                                 <option value="banco_horas">Banco de Horas</option>
                                 <option value="eventos">Eventos</option>
                                 <option value="pontualidade">Pontualidade</option>
@@ -59,8 +74,9 @@ export function renderRelatorios(container) {
                         <div class="col-md-6">
                             <label>Filtro Adicional</label>
                             <select class="form-control" id="filtroAdicional">
-                                <option value="">Selecione</option>
+                                <option value="">Todos</option>
                                 <optgroup label="Eventos" id="eventosOpcoes">
+                                    <option value="todos">Todos os Eventos</option>
                                     <option value="falta">Faltas</option>
                                     <option value="advertencia">Advertências</option>
                                     <option value="suspensao">Suspensões</option>
@@ -74,9 +90,23 @@ export function renderRelatorios(container) {
                                 <button class="btn btn-primary" id="gerarRelatorioBtn">
                                     <i class="bi bi-file-earmark-spreadsheet me-2"></i>Gerar Relatório
                                 </button>
-                                <button class="btn btn-success" id="exportarRelatorioBtn" disabled>
-                                    <i class="bi bi-cloud-download me-2"></i>Exportar
-                                </button>
+                                <div class="btn-group">
+                                    <button class="btn btn-success dropdown-toggle" id="exportarRelatorioBtn" data-bs-toggle="dropdown" disabled>
+                                        <i class="bi bi-cloud-download me-2"></i>Exportar
+                                    </button>
+                                    <ul class="dropdown-menu">
+                                        <li>
+                                            <a class="dropdown-item" href="#" id="exportExcelBtn">
+                                                <i class="bi bi-file-excel me-2"></i>Excel (.xlsx)
+                                            </a>
+                                        </li>
+                                        <li>
+                                            <a class="dropdown-item" href="#" id="exportPdfBtn">
+                                                <i class="bi bi-file-pdf me-2"></i>PDF
+                                            </a>
+                                        </li>
+                                    </ul>
+                                </div>
                                 <button class="btn btn-secondary" id="enviarEmailBtn" disabled>
                                     <i class="bi bi-envelope me-2"></i>Enviar por E-mail
                                 </button>
@@ -124,9 +154,11 @@ export function renderRelatorios(container) {
                         <table class="table" id="historicoRelatorios">
                             <thead>
                                 <tr>
+                                    <th></th>
                                     <th>Data</th>
                                     <th>Tipo</th>
                                     <th>Período</th>
+                                    <th>Status</th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
@@ -167,9 +199,7 @@ export function renderRelatorios(container) {
     });
 
     // Gerar Relatório
-    document.getElementById('gerarRelatorioBtn').addEventListener('click', gerarRelatorio);
-
-    function gerarRelatorio() {
+    document.getElementById('gerarRelatorioBtn').addEventListener('click', async () => {
         const tipoRelatorio = document.getElementById('tipoRelatorio').value;
         const funcionario = document.getElementById('funcionarioFiltro').value;
         const setor = document.getElementById('setorFiltro').value;
@@ -177,214 +207,261 @@ export function renderRelatorios(container) {
         const dataFinal = document.getElementById('dataFinal').value;
         const filtroAdicional = document.getElementById('filtroAdicional').value;
 
-        let dadosRelatorio = [];
-        let sumario = {};
-
-        // Carregar dados com base no tipo de relatório
-        switch(tipoRelatorio) {
-            case 'banco_horas':
-                dadosRelatorio = processarBancoHoras(funcionario, setor, dataInicial, dataFinal);
-                break;
-            case 'eventos':
-                dadosRelatorio = processarEventos(funcionario, setor, dataInicial, dataFinal, filtroAdicional);
-                break;
-            case 'pontualidade':
-                dadosRelatorio = processarPontualidade(funcionario, setor, dataInicial, dataFinal);
-                break;
-            case 'produtividade':
-                dadosRelatorio = processarProdutividade(funcionario, setor, dataInicial, dataFinal);
-                break;
+        // Validation
+        if (!dataInicial || !dataFinal) {
+            alert('Por favor, selecione um período para o relatório');
+            return;
         }
 
-        // Atualizar preview
-        atualizarPreviewRelatorio(dadosRelatorio, tipoRelatorio);
-
-        // Salvar relatório no histórico
-        salvarHistoricoRelatorio(tipoRelatorio, dataInicial, dataFinal);
-    }
-
-    function processarBancoHoras(funcionario, setor, dataInicial, dataFinal) {
-        const bancoHoras = LocalStorageService.getData('banco_horas') || [];
+        // Show loading state
+        const gerarBtn = document.getElementById('gerarRelatorioBtn');
+        const exportarBtn = document.getElementById('exportarRelatorioBtn');
+        const enviarEmailBtn = document.getElementById('enviarEmailBtn');
         
-        return bancoHoras.filter(entry => {
-            const matchFuncionario = !funcionario || entry.funcionario === funcionario;
-            const matchData = (!dataInicial || new Date(entry.dataFinal) >= new Date(dataInicial)) &&
-                              (!dataFinal || new Date(entry.dataFinal) <= new Date(dataFinal));
-            return matchFuncionario && matchData;
-        });
-    }
+        gerarBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Gerando...';
+        gerarBtn.disabled = true;
+        exportarBtn.disabled = true;
+        enviarEmailBtn.disabled = true;
 
-    function processarEventos(funcionario, setor, dataInicial, dataFinal, tipoEvento) {
-        const eventos = LocalStorageService.getData('eventos') || [];
-        
-        return eventos.filter(evento => {
-            const matchFuncionario = !funcionario || evento.funcionario === funcionario;
-            const matchTipoEvento = !tipoEvento || evento.tipo === tipoEvento;
-            const matchData = (!dataInicial || new Date(evento.data) >= new Date(dataInicial)) &&
-                              (!dataFinal || new Date(evento.data) <= new Date(dataFinal));
-            return matchFuncionario && matchTipoEvento && matchData;
-        });
-    }
-
-    function processarPontualidade(funcionario, setor, dataInicial, dataFinal) {
-        const eventos = LocalStorageService.getData('eventos') || [];
-        const funcionarios = LocalStorageService.getData('funcionarios') || [];
-
-        const pontualidade = funcionarios
-            .filter(f => (!funcionario || f.nome === funcionario) && 
-                         (!setor || f.setor === setor))
-            .map(f => {
-                const eventosFunc = eventos.filter(e => 
-                    e.funcionario === f.nome && 
-                    (e.tipo === 'falta' || e.tipo === 'atraso') &&
-                    (!dataInicial || new Date(e.data) >= new Date(dataInicial)) &&
-                    (!dataFinal || new Date(e.data) <= new Date(dataFinal))
-                );
-
-                return {
-                    nome: f.nome,
-                    setor: f.setor,
-                    totalEventos: eventosFunc.length,
-                    faltas: eventosFunc.filter(e => e.tipo === 'falta').length,
-                    atrasos: eventosFunc.filter(e => e.tipo === 'atraso').length,
-                    percentualPontualidade: ((1 - (eventosFunc.length / 30)) * 100).toFixed(2) + '%'
-                };
+        try {
+            // Construct query parameters
+            const params = new URLSearchParams({
+                tipo: tipoRelatorio === 'todos' ? filtroAdicional || 'todos' : tipoRelatorio,
+                periodoInicio: dataInicial,
+                periodoFim: dataFinal
             });
 
-        return pontualidade;
-    }
+            if (funcionario) params.append('funcionario', funcionario);
+            if (setor) params.append('setor', setor);
 
-    function processarProdutividade(funcionario, setor, dataInicial, dataFinal) {
-        const bancoHoras = LocalStorageService.getData('banco_horas') || [];
-        const funcionarios = LocalStorageService.getData('funcionarios') || [];
-
-        const produtividade = funcionarios
-            .filter(f => (!funcionario || f.nome === funcionario) && 
-                         (!setor || f.setor === setor))
-            .map(f => {
-                const horasExtras = bancoHoras
-                    .filter(bh => 
-                        bh.funcionario === f.nome &&
-                        (!dataInicial || new Date(bh.dataFinal) >= new Date(dataInicial)) &&
-                        (!dataFinal || new Date(bh.dataFinal) <= new Date(dataFinal))
-                    )
-                    .reduce((sum, bh) => sum + convertTimeToHours(bh.saldo), 0);
-
-                return {
-                    nome: f.nome,
-                    setor: f.setor,
-                    horasExtras: horasExtras.toFixed(2),
-                    statusProdutividade: 
-                        horasExtras > 20 ? 'Excelente' : 
-                        horasExtras > 10 ? 'Bom' : 
-                        horasExtras > 0 ? 'Regular' : 'Baixa'
-                };
+            // Make API request
+            const response = await fetch(`/api/relatorios?${params.toString()}`, {
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                    'Content-Type': 'application/json'
+                }
             });
 
-        return produtividade;
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const dadosRelatorio = await response.json();
+
+            if (!dadosRelatorio || (Array.isArray(dadosRelatorio) && dadosRelatorio.length === 0)) {
+                alert('Nenhum dado encontrado para os filtros selecionados');
+                document.getElementById('previewCard').style.display = 'none';
+                return;
+            }
+
+            // Update preview with received data
+            atualizarPreviewRelatorio(dadosRelatorio, tipoRelatorio);
+
+            // Save to history with status from API
+            salvarHistoricoRelatorio({
+                tipo: tipoRelatorio,
+                periodoInicial: dataInicial,
+                periodoFinal: dataFinal,
+                status: 'Gerado com sucesso',
+                data: new Date().toLocaleString(),
+                dadosRelatorio // Store the actual data
+            });
+
+            // Enable export buttons
+            exportarBtn.disabled = false;
+            enviarEmailBtn.disabled = false;
+
+            // Show preview card
+            document.getElementById('previewCard').style.display = 'block';
+
+        } catch (error) {
+            console.error('Erro ao gerar relatório:', error);
+            alert('Erro ao gerar relatório. Por favor, tente novamente.');
+            
+            // Save failed attempt to history
+            salvarHistoricoRelatorio({
+                tipo: tipoRelatorio,
+                periodoInicial: dataInicial,
+                periodoFinal: dataFinal,
+                status: 'Erro na geração',
+                data: new Date().toLocaleString()
+            });
+
+        } finally {
+            // Restore button states
+            gerarBtn.innerHTML = '<i class="bi bi-file-earmark-spreadsheet me-2"></i>Gerar Relatório';
+            gerarBtn.disabled = false;
+        }
+    });
+
+    function salvarHistoricoRelatorio(relatorio) {
+        const historico = JSON.parse(localStorage.getItem('historicoRelatorios') || '[]');
+        const novoRegistro = {
+            id: Date.now(),
+            ...relatorio
+        };
+
+        historico.unshift(novoRegistro);
+        localStorage.setItem('historicoRelatorios', JSON.stringify(historico.slice(0, 10)));
+
+        atualizarTabelaHistorico();
     }
+
+    function atualizarTabelaHistorico() {
+        const historico = JSON.parse(localStorage.getItem('historicoRelatorios') || '[]');
+        const historicoTable = document.getElementById('historicoRelatorios').getElementsByTagName('tbody')[0];
+        
+        historicoTable.innerHTML = historico.map(registro => `
+            <tr>
+                <td>
+                    <div class="form-check">
+                        <input class="form-check-input select-report" type="checkbox" value="${registro.id}">
+                    </div>
+                </td>
+                <td>${registro.data}</td>
+                <td>${formatarTipoRelatorio(registro.tipo)}</td>
+                <td>${registro.periodoInicial} - ${registro.periodoFinal}</td>
+                <td>
+                    <span class="badge bg-${registro.status.includes('Erro') ? 'danger' : 'success'}">
+                        ${registro.status}
+                    </span>
+                </td>
+                <td>
+                    <div class="btn-group">
+                        <button class="btn btn-sm btn-primary recuperar-relatorio" 
+                                data-id="${registro.id}" 
+                                data-bs-toggle="tooltip" 
+                                title="Recuperar relatório">
+                            <i class="bi bi-cloud-download"></i>
+                        </button>
+                        <button class="btn btn-sm btn-success export-excel" 
+                                data-id="${registro.id}"
+                                data-bs-toggle="tooltip" 
+                                title="Exportar para Excel"
+                                ${!registro.dadosRelatorio ? 'disabled' : ''}>
+                            <i class="bi bi-file-excel"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger export-pdf" 
+                                data-id="${registro.id}"
+                                data-bs-toggle="tooltip" 
+                                title="Exportar para PDF"
+                                ${!registro.dadosRelatorio ? 'disabled' : ''}>
+                            <i class="bi bi-file-pdf"></i>
+                        </button>
+                        <button class="btn btn-sm btn-info send-email" 
+                                data-id="${registro.id}"
+                                data-bs-toggle="tooltip" 
+                                title="Enviar por e-mail"
+                                ${!registro.dadosRelatorio ? 'disabled' : ''}>
+                            <i class="bi bi-envelope"></i>
+                        </button>
+                        <button class="btn btn-sm btn-danger delete-report" 
+                                data-id="${registro.id}"
+                                data-bs-toggle="tooltip" 
+                                title="Excluir relatório">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+
+        // Re-initialize event listeners and tooltips
+        initializeTableEventListeners();
+    }
+
+    // ... (keep existing utility functions and event handlers)
 
     function atualizarPreviewRelatorio(dadosRelatorio, tipoRelatorio) {
         const previewCard = document.getElementById('previewCard');
         const previewTable = document.getElementById('relatorioPreviewTable');
         const sumarioDiv = document.getElementById('relatorioSumario');
-        const exportarBtn = document.getElementById('exportarRelatorioBtn');
-        const enviarEmailBtn = document.getElementById('enviarEmailBtn');
 
-        // Limpar tabela anterior
-        previewTable.innerHTML = '';
+        // Clear previous content
+        previewTable.querySelector('thead').innerHTML = '';
+        previewTable.querySelector('tbody').innerHTML = '';
 
-        if (dadosRelatorio.length === 0) {
-            previewTable.innerHTML = '<tr><td colspan="6">Nenhum dado encontrado</td></tr>';
-            previewCard.style.display = 'block';
-            exportarBtn.disabled = true;
-            enviarEmailBtn.disabled = true;
-            return;
-        }
-
-        // Cabeçalhos dinâmicos com base no tipo de relatório
-        const headers = {
-            'banco_horas': ['Funcionário', 'Saldo do Período', 'Data Inicial', 'Data Final'],
-            'eventos': ['Funcionário', 'Tipo', 'Data', 'Descrição'],
-            'pontualidade': ['Funcionário', 'Setor', 'Total Eventos', 'Faltas', 'Atrasos', '% Pontualidade'],
-            'produtividade': ['Funcionário', 'Setor', 'Horas Extras', 'Status']
-        }[tipoRelatorio];
-
-        // Criar cabeçalho
-        const thead = document.createElement('thead');
-        const headerRow = document.createElement('tr');
-        headers.forEach(header => {
-            const th = document.createElement('th');
-            th.textContent = header;
-            headerRow.appendChild(th);
-        });
-        thead.appendChild(headerRow);
-        previewTable.appendChild(thead);
-
-        // Criar corpo da tabela
-        const tbody = document.createElement('tbody');
-        dadosRelatorio.slice(0, 10).forEach(item => {
-            const tr = document.createElement('tr');
-            let rowData;
-            switch(tipoRelatorio) {
-                case 'banco_horas':
-                    rowData = [
-                        item.funcionario, 
-                        item.saldo, 
-                        item.dataInicial, 
-                        item.dataFinal
-                    ];
-                    break;
-                case 'eventos':
-                    rowData = [
-                        item.funcionario, 
-                        item.tipo, 
-                        item.data, 
-                        item.descricao || '-'
-                    ];
-                    break;
-                case 'pontualidade':
-                    rowData = [
-                        item.nome, 
-                        item.setor, 
-                        item.totalEventos, 
-                        item.faltas, 
-                        item.atrasos, 
-                        item.percentualPontualidade
-                    ];
-                    break;
-                case 'produtividade':
-                    rowData = [
-                        item.nome, 
-                        item.setor, 
-                        item.horasExtras, 
-                        item.statusProdutividade
-                    ];
-                    break;
+        if (tipoRelatorio === 'todos') {
+            let combinedHtml = '<div class="accordion" id="reportAccordion">';
+            
+            // Process each report type
+            if (dadosRelatorio.bancoHoras?.length > 0) {
+                combinedHtml += createAccordionSection('bancoHoras', 'Banco de Horas', dadosRelatorio.bancoHoras);
+            }
+            if (dadosRelatorio.eventos?.length > 0) {
+                combinedHtml += createAccordionSection('eventos', 'Eventos', dadosRelatorio.eventos);
+            }
+            if (dadosRelatorio.pontualidade?.length > 0) {
+                combinedHtml += createAccordionSection('pontualidade', 'Pontualidade', dadosRelatorio.pontualidade);
+            }
+            if (dadosRelatorio.produtividade?.length > 0) {
+                combinedHtml += createAccordionSection('produtividade', 'Produtividade', dadosRelatorio.produtividade);
             }
             
-            rowData.forEach(cellData => {
-                const td = document.createElement('td');
-                td.textContent = cellData;
-                tr.appendChild(td);
+            combinedHtml += '</div>';
+            previewTable.innerHTML = combinedHtml;
+
+            // Update summary for combined report
+            let totalRegistros = 0;
+            Object.values(dadosRelatorio).forEach(data => {
+                if (Array.isArray(data)) {
+                    totalRegistros += data.length;
+                }
             });
-            tbody.appendChild(tr);
-        });
-        previewTable.appendChild(tbody);
 
-        // Atualizar sumário
-        sumarioDiv.innerHTML = `
-            <p><strong>Total de Registros:</strong> ${dadosRelatorio.length}</p>
-            <p><strong>Registros Exibidos:</strong> ${Math.min(dadosRelatorio.length, 10)}</p>
-        `;
+            sumarioDiv.innerHTML = `
+                <h5>Resumo Geral</h5>
+                <ul class="list-unstyled">
+                    <li>Total de Registros: ${totalRegistros}</li>
+                    <li>Banco de Horas: ${dadosRelatorio.bancoHoras?.length || 0} registros</li>
+                    <li>Eventos: ${dadosRelatorio.eventos?.length || 0} registros</li>
+                    <li>Pontualidade: ${dadosRelatorio.pontualidade?.length || 0} registros</li>
+                    <li>Produtividade: ${dadosRelatorio.produtividade?.length || 0} registros</li>
+                    <li>Período: ${document.getElementById('dataInicial').value} a ${document.getElementById('dataFinal').value}</li>
+                </ul>
+            `;
+        } else {
+            // Handle single report type
+            const headers = Object.keys(dadosRelatorio[0] || {});
+            
+            // Create header row
+            const headerRow = document.createElement('tr');
+            headers.forEach(header => {
+                const th = document.createElement('th');
+                th.textContent = header.charAt(0).toUpperCase() + header.slice(1).replace(/([A-Z])/g, ' $1');
+                headerRow.appendChild(th);
+            });
+            previewTable.querySelector('thead').appendChild(headerRow);
 
-        // Exibir card de preview
+            // Create data rows
+            dadosRelatorio.forEach(item => {
+                const row = document.createElement('tr');
+                headers.forEach(header => {
+                    const td = document.createElement('td');
+                    td.textContent = item[header] || '-';
+                    row.appendChild(td);
+                });
+                previewTable.querySelector('tbody').appendChild(row);
+            });
+
+            // Update summary
+            sumarioDiv.innerHTML = `
+                <h5>Resumo do Relatório</h5>
+                <ul class="list-unstyled">
+                    <li>Total de Registros: ${dadosRelatorio.length}</li>
+                    <li>Tipo: ${formatarTipoRelatorio(tipoRelatorio)}</li>
+                    <li>Período: ${document.getElementById('dataInicial').value} a ${document.getElementById('dataFinal').value}</li>
+                </ul>
+            `;
+
+            // Generate chart if applicable
+            if (['eventos', 'pontualidade', 'produtividade'].includes(tipoRelatorio)) {
+                criarGraficoPizza(dadosRelatorio, tipoRelatorio);
+            }
+        }
+
+        // Show preview card
         previewCard.style.display = 'block';
-        exportarBtn.disabled = false;
-        enviarEmailBtn.disabled = false;
-
-        // Criação de gráfico de pizza
-        criarGraficoPizza(dadosRelatorio, tipoRelatorio);
     }
 
     function criarGraficoPizza(dadosRelatorio, tipoRelatorio) {
@@ -454,40 +531,6 @@ export function renderRelatorios(container) {
         });
     }
 
-    function salvarHistoricoRelatorio(tipo, dataInicial, dataFinal) {
-        const historico = JSON.parse(localStorage.getItem('historicoRelatorios') || '[]');
-        const novoRegistro = {
-            id: Date.now(),
-            data: new Date().toLocaleString(),
-            tipo: tipo,
-            periodoInicial: dataInicial,
-            periodoFinal: dataFinal
-        };
-
-        historico.unshift(novoRegistro);
-        localStorage.setItem('historicoRelatorios', JSON.stringify(historico.slice(0, 10)));
-
-        atualizarTabelaHistorico();
-    }
-
-    function atualizarTabelaHistorico() {
-        const historico = JSON.parse(localStorage.getItem('historicoRelatorios') || '[]');
-        const historicoTable = document.getElementById('historicoRelatorios').getElementsByTagName('tbody')[0];
-        
-        historicoTable.innerHTML = historico.map(registro => `
-            <tr>
-                <td>${registro.data}</td>
-                <td>${formatarTipoRelatorio(registro.tipo)}</td>
-                <td>${registro.periodoInicial} - ${registro.periodoFinal}</td>
-                <td>
-                    <button class="btn btn-sm btn-primary recuperar-relatorio" data-id="${registro.id}">
-                        <i class="bi bi-cloud-download"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
-    }
-
     function formatarTipoRelatorio(tipo) {
         const mapeamento = {
             'banco_horas': 'Banco de Horas',
@@ -498,62 +541,304 @@ export function renderRelatorios(container) {
         return mapeamento[tipo] || tipo;
     }
 
-    function convertTimeToHours(timeStr) {
-        if (!timeStr) return 0;
+    function createAccordionSection(id, title, data) {
+        if (!data || data.length === 0) return '';
         
-        const isNegative = timeStr.startsWith('-');
-        const [hours, minutes] = timeStr.replace(/[+-]/, '').split(':').map(Number);
-        const decimalHours = hours + (minutes / 60);
-        
-        return isNegative ? -decimalHours : decimalHours;
+        const headers = Object.keys(data[0]);
+        const rows = data.map(item => 
+            `<tr>${headers.map(header => `<td>${item[header] || '-'}</td>`).join('')}</tr>`
+        ).join('');
+
+        return `
+            <div class="accordion-item">
+                <h2 class="accordion-header">
+                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse${id}">
+                        ${title} (${data.length} registros)
+                    </button>
+                </h2>
+                <div id="collapse${id}" class="accordion-collapse collapse">
+                    <div class="accordion-body">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>${headers.map(h => `<th>${h.charAt(0).toUpperCase() + h.slice(1).replace(/([A-Z])/g, ' $1')}</th>`).join('')}</tr>
+                            </thead>
+                            <tbody>${rows}</tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        `;
     }
 
-    // Exportar Relatório
-    document.getElementById('exportarRelatorioBtn').addEventListener('click', () => {
-        const tipoRelatorio = document.getElementById('tipoRelatorio').value;
-        const dadosRelatorio = document.getElementById('relatorioPreviewTable').innerText;
+    function initializeTableEventListeners() {
+        // Checkbox selection handlers
+        const checkboxes = document.querySelectorAll('.select-report');
+        const deleteSelectedBtn = document.getElementById('deleteSelectedBtn');
+        const selectedCountSpan = document.getElementById('selectedCount');
 
-        // Usar biblioteca XLSX para gerar arquivo
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', () => {
+                const selectedCount = document.querySelectorAll('.select-report:checked').length;
+                deleteSelectedBtn.disabled = selectedCount === 0;
+                selectedCountSpan.textContent = `${selectedCount} relatório${selectedCount !== 1 ? 's' : ''} selecionado${selectedCount !== 1 ? 's' : ''}`;
+            });
+        });
+
+        // Add "Select All" functionality
+        const selectAllCheckbox = document.createElement('input');
+        selectAllCheckbox.type = 'checkbox';
+        selectAllCheckbox.className = 'form-check-input';
+        selectAllCheckbox.id = 'selectAllReports';
+        
+        const selectAllCell = document.querySelector('#historicoRelatorios thead tr').insertCell(0);
+        selectAllCell.appendChild(selectAllCheckbox);
+
+        selectAllCheckbox.addEventListener('change', (e) => {
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+            });
+            const selectedCount = e.target.checked ? checkboxes.length : 0;
+            deleteSelectedBtn.disabled = selectedCount === 0;
+            selectedCountSpan.textContent = `${selectedCount} relatório${selectedCount !== 1 ? 's' : ''} selecionado${selectedCount !== 1 ? 's' : ''}`;
+        });
+
+        // Button handlers
+        document.querySelectorAll('.recuperar-relatorio').forEach(btn => {
+            btn.addEventListener('click', () => recuperarRelatorio(btn.dataset.id));
+        });
+
+        document.querySelectorAll('.export-excel').forEach(btn => {
+            btn.addEventListener('click', () => exportarRelatorioExcel(btn.dataset.id));
+        });
+
+        document.querySelectorAll('.export-pdf').forEach(btn => {
+            btn.addEventListener('click', () => exportarRelatorioPDF(btn.dataset.id));
+        });
+
+        document.querySelectorAll('.send-email').forEach(btn => {
+            btn.addEventListener('click', () => enviarRelatorioEmail(btn.dataset.id));
+        });
+
+        document.querySelectorAll('.delete-report').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                if (confirm('Tem certeza que deseja excluir este relatório?')) {
+                    deleteReport(btn.dataset.id);
+                }
+            });
+        });
+
+        // Bulk delete handler
+        deleteSelectedBtn.addEventListener('click', () => {
+            const selectedIds = Array.from(document.querySelectorAll('.select-report:checked'))
+                .map(checkbox => checkbox.value);
+            
+            if (selectedIds.length > 0 && confirm(`Tem certeza que deseja excluir ${selectedIds.length} relatório(s)?`)) {
+                deleteMultipleReports(selectedIds);
+            }
+        });
+
+        // Initialize tooltips
+        const tooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+        tooltips.forEach(tooltip => new bootstrap.Tooltip(tooltip));
+    }
+
+    function deleteReport(id) {
+        const historico = JSON.parse(localStorage.getItem('historicoRelatorios') || '[]');
+        const updatedHistorico = historico.filter(registro => registro.id !== Number(id));
+        localStorage.setItem('historicoRelatorios', JSON.stringify(updatedHistorico));
+        atualizarTabelaHistorico();
+    }
+
+    function deleteMultipleReports(ids) {
+        const historico = JSON.parse(localStorage.getItem('historicoRelatorios') || '[]');
+        const updatedHistorico = historico.filter(registro => !ids.includes(registro.id.toString()));
+        localStorage.setItem('historicoRelatorios', JSON.stringify(updatedHistorico));
+        atualizarTabelaHistorico();
+    }
+
+    function exportToExcel(dadosRelatorio, tipoRelatorio) {
         const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.aoa_to_sheet(
-            dadosRelatorio.split('\n').map(linha => linha.split('\t'))
-        );
+        
+        // Convert data to worksheet format
+        const wsData = [
+            // Header row
+            Object.keys(dadosRelatorio[0]),
+            // Data rows
+            ...dadosRelatorio.map(item => Object.values(item))
+        ];
+        
+        const ws = XLSX.utils.aoa_to_sheet(wsData);
+        
+        // Add the worksheet to the workbook
         XLSX.utils.book_append_sheet(wb, ws, `Relatório ${formatarTipoRelatorio(tipoRelatorio)}`);
         
-        const nomeArquivo = `relatorio_${tipoRelatorio}_${new Date().toISOString().split('T')[0]}.xlsx`;
-        XLSX.writeFile(wb, nomeArquivo);
-    });
-
-    // Enviar por E-mail (simulação)
-    document.getElementById('enviarEmailBtn').addEventListener('click', () => {
-        const tipoRelatorio = document.getElementById('tipoRelatorio').value;
-        const destinatario = prompt('Digite o e-mail de destino:');
+        // Generate filename with date
+        const date = new Date().toISOString().split('T')[0];
+        const filename = `relatorio_${tipoRelatorio}_${date}.xlsx`;
         
-        if (destinatario) {
-            alert(`Relatório de ${formatarTipoRelatorio(tipoRelatorio)} enviado para ${destinatario}`);
+        // Save the file
+        XLSX.writeFile(wb, filename);
+
+        // Add confirmation
+        alert(`Relatório exportado com sucesso: ${filename}`);
+    }
+
+    function exportToPDF(dadosRelatorio, tipoRelatorio) {
+        // Create new PDF document
+        const doc = new jsPDF();
+        
+        // Add title
+        doc.setFontSize(16);
+        doc.text(`Relatório de ${formatarTipoRelatorio(tipoRelatorio)}`, 14, 15);
+        
+        // Add date
+        doc.setFontSize(10);
+        doc.text(`Gerado em: ${new Date().toLocaleDateString()}`, 14, 25);
+        
+        // Prepare data for autotable
+        const headers = Object.keys(dadosRelatorio[0]);
+        const data = dadosRelatorio.map(item => Object.values(item));
+        
+        // Add table
+        doc.autoTable({
+            head: [headers],
+            body: data,
+            startY: 30,
+            styles: { fontSize: 8 },
+            headStyles: { fillColor: [106, 13, 173] }, // Roxo GrapeWork
+            alternateRowStyles: { fillColor: [245, 245, 245] }
+        });
+        
+        // Generate filename with date
+        const date = new Date().toISOString().split('T')[0];
+        const filename = `relatorio_${tipoRelatorio}_${date}.pdf`;
+        
+        // Save the file
+        doc.save(filename);
+
+        // Add confirmation
+        alert(`Relatório PDF exportado com sucesso: ${filename}`);
+    }
+
+    function recuperarRelatorio(id) {
+        const historico = JSON.parse(localStorage.getItem('historicoRelatorios') || '[]');
+        const registro = historico.find(r => r.id === Number(id));
+
+        if (registro) {
+            // Preencher filtros
+            document.getElementById('tipoRelatorio').value = registro.tipo;
+            document.getElementById('dataInicial').value = registro.periodoInicial;
+            document.getElementById('dataFinal').value = registro.periodoFinal;
+
+            // Gerar relatório novamente
+            document.getElementById('gerarRelatorioBtn').click();
         }
-    });
+    }
+
+    function exportarRelatorioExcel(id) {
+        const historico = JSON.parse(localStorage.getItem('historicoRelatorios') || '[]');
+        const registro = historico.find(r => r.id === Number(id));
+        
+        if (registro) {
+            const dadosRelatorio = registro.dadosRelatorio;
+            exportToExcel(dadosRelatorio, registro.tipo);
+        }
+    }
+
+    function exportarRelatorioPDF(id) {
+        const historico = JSON.parse(localStorage.getItem('historicoRelatorios') || '[]');
+        const registro = historico.find(r => r.id === Number(id));
+        
+        if (registro) {
+            const dadosRelatorio = registro.dadosRelatorio;
+            exportToPDF(dadosRelatorio, registro.tipo);
+        }
+    }
+
+    function enviarRelatorioEmail(id) {
+        const historico = JSON.parse(localStorage.getItem('historicoRelatorios') || '[]');
+        const registro = historico.find(r => r.id === Number(id));
+        
+        if (registro) {
+            const destinatario = prompt('Digite o e-mail de destino:');
+            if (destinatario && validateEmail(destinatario)) {
+                // Simulate email sending
+                alert(`Relatório de ${formatarTipoRelatorio(registro.tipo)} enviado para ${destinatario}`);
+            } else if (destinatario) {
+                alert('Por favor, insira um endereço de e-mail válido.');
+            }
+        }
+    }
+
+    function validateEmail(email) {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
 
     // Inicializar histórico
     atualizarTabelaHistorico();
 
-    // Listeners para recuperar relatórios do histórico
-    document.getElementById('historicoRelatorios').addEventListener('click', (e) => {
-        const btn = e.target.closest('.recuperar-relatorio');
-        if (btn) {
-            const id = btn.dataset.id;
-            const historico = JSON.parse(localStorage.getItem('historicoRelatorios') || '[]');
-            const registro = historico.find(r => r.id === Number(id));
+    container.innerHTML += `
+        <!-- Add Legend -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5>Legenda dos Botões</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-12">
+                        <div class="btn-group me-3">
+                            <button class="btn btn-sm btn-primary" disabled>
+                                <i class="bi bi-cloud-download"></i>
+                            </button>
+                            <span class="ms-2">Recuperar relatório</span>
+                        </div>
+                        <div class="btn-group me-3">
+                            <button class="btn btn-sm btn-success" disabled>
+                                <i class="bi bi-file-excel"></i>
+                            </button>
+                            <span class="ms-2">Exportar para Excel</span>
+                        </div>
+                        <div class="btn-group me-3">
+                            <button class="btn btn-sm btn-danger" disabled>
+                                <i class="bi bi-file-pdf"></i>
+                            </button>
+                            <span class="ms-2">Exportar para PDF</span>
+                        </div>
+                        <div class="btn-group me-3">
+                            <button class="btn btn-sm btn-info" disabled>
+                                <i class="bi bi-envelope"></i>
+                            </button>
+                            <span class="ms-2">Enviar por e-mail</span>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-danger" disabled>
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            <span class="ms-2">Excluir relatório</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-            if (registro) {
-                // Preencher filtros
-                document.getElementById('tipoRelatorio').value = registro.tipo;
-                document.getElementById('dataInicial').value = registro.periodoInicial;
-                document.getElementById('dataFinal').value = registro.periodoFinal;
+        <!-- Add bulk actions -->
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5>Ações em Massa</h5>
+            </div>
+            <div class="card-body">
+                <button class="btn btn-danger" id="deleteSelectedBtn" disabled>
+                    <i class="bi bi-trash"></i> Excluir Selecionados
+                </button>
+                <span class="ms-3" id="selectedCount">0 relatórios selecionados</span>
+            </div>
+        </div>
+    `;
 
-                // Gerar relatório novamente
-                gerarRelatorio();
-            }
-        }
-    });
+    // Initialize tooltips
+    const tooltips = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+    tooltips.forEach(tooltip => new bootstrap.Tooltip(tooltip));
+
+    initializeTableEventListeners();
 }

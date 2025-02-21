@@ -35,17 +35,26 @@ export function renderFuncionarios(container) {
                                 </div>
                                 <div class="row mb-3">
                                     <div class="col">
+                                        <label>Setor</label>
+                                        <select class="form-control" id="setor">
+                                            <option value="">Selecione o setor</option>
+                                            ${getSetoresOptions()}
+                                        </select>
+                                    </div>
+                                    <div class="col">
                                         <label>Filial</label>
                                         <input type="text" class="form-control" id="filial">
                                     </div>
+                                </div>
+                                <div class="row mb-3">
                                     <div class="col">
                                         <label>Local de Trabalho</label>
                                         <input type="text" class="form-control" id="localTrabalho">
                                     </div>
-                                </div>
-                                <div class="mb-3">
-                                    <label>Centro de Custo</label>
-                                    <input type="text" class="form-control" id="centroCusto">
+                                    <div class="col">
+                                        <label>Centro de Custo</label>
+                                        <input type="text" class="form-control" id="centroCusto">
+                                    </div>
                                 </div>
 
                                 <!-- Dados Pessoais -->
@@ -514,6 +523,7 @@ export function renderFuncionarios(container) {
             document.getElementById('nome').value = funcionario.nome;
             document.getElementById('cargo').value = funcionario.cargo;
             document.getElementById('funcao').value = funcionario.funcao;
+            document.getElementById('setor').value = funcionario.setor;
             document.getElementById('filial').value = funcionario.filial;
             document.getElementById('localTrabalho').value = funcionario.localTrabalho;
             document.getElementById('centroCusto').value = funcionario.centroCusto;
@@ -589,4 +599,11 @@ export function renderFuncionarios(container) {
             loadFuncionarios();
         }
     });
+}
+
+function getSetoresOptions() {
+    const setores = LocalStorageService.getData('setores') || [];
+    return setores.map(setor => 
+        `<option value="${setor}">${setor}</option>`
+    ).join('');
 }

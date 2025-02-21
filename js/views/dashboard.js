@@ -189,7 +189,7 @@ export function renderDashboard(container) {
                 <div class="col-md-6 mb-4">
                     <div class="card h-100">
                         <div class="card-header bg-light">
-                            <h5 class="mb-0"><i class="bi bi-trophy me-2"></i>Ranking de Funcionários</h5>
+                            <h5 class="mb-0"><i class="bi bi-shield-exclamation me-2"></i>🕵️⚠️ Monitoramento Necessário</h5>
                         </div>
                         <div class="card-body">
                             <div class="table-responsive">
@@ -374,7 +374,7 @@ export function renderDashboard(container) {
         // Atualizar ranking de funcionários
         updateEmployeeRanking(filteredEvents);
         
-        // Atualizar alertas
+        // Update alerts with pattern analysis
         updateAlerts(filteredEvents);
         
         updateSalaryMetrics();
@@ -493,15 +493,36 @@ export function renderDashboard(container) {
 
     function updateEmployeeRanking(filteredEvents) {
         const employeeEvents = {};
+        const eventSeverity = {
+            'suspensao': 3,     // Most severe
+            'advertencia': 2,    // Medium severity
+            'falta': 2,         // Medium severity
+            'atraso': 1,        // Less severe
+            'atestado': 1       // Less severe
+        };
+
         filteredEvents.forEach(event => {
             if (!employeeEvents[event.funcionario]) {
                 employeeEvents[event.funcionario] = {
                     count: 0,
+                    severityScore: 0,
+                    events: {},
                     lastEvent: null,
                     setor: funcionarios.find(f => f.nome === event.funcionario)?.setor || 'N/A'
                 };
             }
+            
+            // Count total events
             employeeEvents[event.funcionario].count++;
+            
+            // Track event types
+            employeeEvents[event.funcionario].events[event.tipo] = 
+                (employeeEvents[event.funcionario].events[event.tipo] || 0) + 1;
+            
+            // Calculate severity score
+            employeeEvents[event.funcionario].severityScore += eventSeverity[event.tipo] || 1;
+
+            // Track last event
             if (!employeeEvents[event.funcionario].lastEvent || 
                 new Date(event.data) > new Date(employeeEvents[event.funcionario].lastEvent)) {
                 employeeEvents[event.funcionario].lastEvent = event.data;
@@ -510,23 +531,152 @@ export function renderDashboard(container) {
 
         const rankingTable = document.getElementById('employeeRankingTable').getElementsByTagName('tbody')[0];
         rankingTable.innerHTML = Object.entries(employeeEvents)
-            .sort((a, b) => b[1].count - a[1].count)
+            .sort((a, b) => b[1].severityScore - a[1].severityScore)
             .slice(0, 5)
-            .map(([name, data]) => `
-                <tr>
-                    <td>${name}</td>
-                    <td>${data.setor}</td>
-                    <td>${data.count}</td>
-                    <td>${new Date(data.lastEvent).toLocaleDateString()}</td>
-                </tr>
-            `).join('');
+            .map(([name, data]) => {
+                // Calculate risk level
+                const riskLevel = calculateRiskLevel(data.severityScore);
+                
+                // Generate event summary
+                const eventSummary = Object.entries(data.events)
+                    .map(([type, count]) => {
+                        const color = getEventTypeColor(type);
+                        return `<span class="badge bg-${color}" title="${type}">${count}</span>`;
+                    }).join(' ');
+
+                return `
+                    <tr>
+                        <td>${name}</td>
+                        <td>${data.setor}</td>
+                        <td>
+                            <div class="d-flex align-items-center">
+                                ${getRiskIcon(riskLevel)}
+                                <span class="ms-2">${data.count}</span>
+                                <div class="ms-2">${eventSummary}</div>
+                            </div>
+                        </td>
+                        <td>${new Date(data.lastEvent).toLocaleDateString()}</td>
+                    </tr>
+                `;
+            }).join('');
+
+        // Add legend to the table
+        rankingTable.insertAdjacentHTML('afterend', `
+            <div class="mt-3">
+                <small class="text-muted">
+                    <strong>Legenda:</strong><br>
+                    ${getRiskIcon('low')} Baixo risco (0-2 eventos)<br>
+                    ${getRiskIcon('medium')} Médio risco (3-4 eventos)<br>
+                    ${getRiskIcon('high')} Alto risco (5+ eventos)<br>
+                    <br>
+                    <strong>Tipos de Eventos:</strong><br>
+                    <span class="badge bg-danger">Suspensão</span>
+                    <span class="badge" style="background-color: #FF8C00;">Advertência</span>
+                    <span class="badge" style="background-color: #FF8C00;">Falta</span>
+                    <span class="badge bg-info">Atraso</span>
+                    <span class="badge bg-success">Atestado</span>
+                </small>
+            </div>
+        `);
+    }
+
+    function calculateRiskLevel(severityScore) {
+        if (severityScore <= 2) return 'low';
+        if (severityScore <= 4) return 'medium';
+        return 'high';
+    }
+
+    function getRiskIcon(risk) {
+        const icons = {
+            'low': '<i class="bi bi-circle-fill text-success" title="Baixo risco"></i>',
+            'medium': '<i class="bi bi-circle-fill" style="color: #FF8C00;" title="Médio risco"></i>',
+            'high': '<i class="bi bi-circle-fill text-danger" title="Alto risco"></i>'
+        };
+        return icons[risk] || icons.low;
+    }
+
+    function getEventTypeColor(type) {
+        const colors = {
+            'suspensao': 'danger',
+            'advertencia': 'dark-orange',  
+            'falta': 'dark-orange',        
+            'atraso': 'info',
+            'atestado': 'success'
+        };
+        return colors[type] || 'secondary';
+    }
+
+    function analyzeEventPatterns(filteredEvents) {
+        // Create pattern analysis for days of week and dates
+        const dayPatterns = {
+            0: { count: 0, name: 'Domingo' },
+            1: { count: 0, name: 'Segunda' },
+            2: { count: 0, name: 'Terça' },
+            3: { count: 0, name: 'Quarta' },
+            4: { count: 0, name: 'Quinta' },
+            5: { count: 0, name: 'Sexta' },
+            6: { count: 0, name: 'Sábado' }
+        };
+
+        const monthDayPatterns = {};
+        const monthPatterns = {};
+        let totalEvents = 0;
+
+        filteredEvents.forEach(event => {
+            const eventDate = new Date(event.data);
+            const dayOfWeek = eventDate.getDay();
+            const dayOfMonth = eventDate.getDate();
+            const month = eventDate.getMonth();
+
+            // Count events by day of week
+            dayPatterns[dayOfWeek].count++;
+
+            // Count events by day of month
+            monthDayPatterns[dayOfMonth] = (monthDayPatterns[dayOfMonth] || 0) + 1;
+
+            // Count events by month
+            monthPatterns[month] = (monthPatterns[month] || 0) + 1;
+
+            totalEvents++;
+        });
+
+        // Calculate percentages and identify critical days
+        const criticalPatterns = [];
+
+        // Analyze days of week
+        Object.entries(dayPatterns).forEach(([day, data]) => {
+            const percentage = (data.count / totalEvents) * 100;
+            if (percentage > 20) { // If more than 20% of events occur on this day
+                criticalPatterns.push({
+                    type: 'weekday',
+                    day: data.name,
+                    percentage: percentage.toFixed(1),
+                    count: data.count
+                });
+            }
+        });
+
+        // Analyze days of month
+        Object.entries(monthDayPatterns).forEach(([day, count]) => {
+            const percentage = (count / totalEvents) * 100;
+            if (percentage > 15) { // If more than 15% of events occur on this date
+                criticalPatterns.push({
+                    type: 'monthday',
+                    day: day,
+                    percentage: percentage.toFixed(1),
+                    count: count
+                });
+            }
+        });
+
+        return criticalPatterns;
     }
 
     function updateAlerts(filteredEvents) {
         const alertsContainer = document.getElementById('alertsContainer');
         const alerts = [];
 
-        // Alerta para funcionários com muitos eventos recentes
+        // Existing alerts code...
         const recentEvents = {};
         const thirtyDaysAgo = new Date();
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -548,9 +698,80 @@ export function renderDashboard(container) {
             }
         });
 
+        // Add pattern analysis alerts
+        const criticalPatterns = analyzeEventPatterns(filteredEvents);
+        
+        if (criticalPatterns.length > 0) {
+            alerts.push(`
+                <div class="alert alert-info">
+                    <h5><i class="bi bi-graph-up"></i> Análise de Padrões de Eventos</h5>
+                    <div class="mt-2">
+                        ${criticalPatterns.map(pattern => {
+                            if (pattern.type === 'weekday') {
+                                return `
+                                    <div class="mb-2">
+                                        <strong>${pattern.day}:</strong> 
+                                        <span class="badge bg-warning">${pattern.percentage}%</span> dos eventos
+                                        (${pattern.count} ocorrências)
+                                    </div>
+                                `;
+                            } else {
+                                return `
+                                    <div class="mb-2">
+                                        <strong>Dia ${pattern.day} do mês:</strong> 
+                                        <span class="badge bg-warning">${pattern.percentage}%</span> dos eventos
+                                        (${pattern.count} ocorrências)
+                                    </div>
+                                `;
+                            }
+                        }).join('')}
+                    </div>
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="bi bi-info-circle"></i> 
+                            Recomenda-se atenção especial nestes períodos para prevenção de eventos.
+                        </small>
+                    </div>
+                </div>
+            `);
+
+            // Add predictive alerts for upcoming critical days
+            const today = new Date();
+            const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
+            
+            criticalPatterns.forEach(pattern => {
+                if (pattern.type === 'weekday') {
+                    const nextCriticalDay = getNextDayOfWeek(today, pattern.day);
+                    if (nextCriticalDay <= nextWeek) {
+                        alerts.push(`
+                            <div class="alert alert-warning">
+                                <i class="bi bi-calendar-event"></i>
+                                <strong>Alerta Preventivo:</strong> 
+                                ${pattern.day} próximo é um dia com histórico de ${pattern.percentage}% dos eventos.
+                                Recomenda-se acompanhamento próximo.
+                            </div>
+                        `);
+                    }
+                }
+            });
+        }
+
         // Render alerts
         alertsContainer.innerHTML = alerts.length ? alerts.join('') : 
             '<div class="alert alert-success">Nenhum alerta crítico no momento</div>';
+    }
+
+    function getNextDayOfWeek(date, dayName) {
+        const days = ['Domingo', 'Segunda', 'Terça', 'Quarta', 'Quinta', 'Sexta', 'Sábado'];
+        const targetDay = days.indexOf(dayName);
+        const currentDay = date.getDay();
+        let daysUntilTarget = targetDay - currentDay;
+        
+        if (daysUntilTarget <= 0) {
+            daysUntilTarget += 7;
+        }
+        
+        return new Date(date.getTime() + daysUntilTarget * 24 * 60 * 60 * 1000);
     }
 
     function convertTimeToHours(timeStr) {
@@ -672,9 +893,6 @@ export function renderDashboard(container) {
         } else {
             totalSalarios = salarios.reduce((sum, s) => sum + s.salario, 0);
         }
-        
-        document.getElementById('totalSalarios').textContent = 
-            `R$ ${totalSalarios.toFixed(2).replace('.', ',')}`;
     }
 
     // Add this new function
